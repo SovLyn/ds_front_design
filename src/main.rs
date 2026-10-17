@@ -1,6 +1,23 @@
 //! Entry point. Native uses a normal eframe window; the browser waits for a
 //! WebGPU-capable canvas and only then starts the same application.
 
+/// Ask for the discrete GPU when the platform honours the WebGPU hint.
+///
+/// This is only a hint. Chrome on Windows currently ignores `powerPreference`
+/// (Chromium bug 369219127), so the OS/browser selects the adapter there; the
+/// README explains how to force Chrome onto the high-performance GPU.
+fn wgpu_configuration() -> eframe::egui_wgpu::WgpuConfiguration {
+    use eframe::egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew};
+
+    let mut setup = WgpuSetupCreateNew::without_display_handle();
+    setup.power_preference = eframe::wgpu::PowerPreference::HighPerformance;
+
+    WgpuConfiguration {
+        wgpu_setup: WgpuSetup::CreateNew(setup),
+        ..Default::default()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     use eframe::egui;
@@ -9,6 +26,7 @@ fn main() -> eframe::Result {
 
     let options = eframe::NativeOptions {
         renderer: eframe::Renderer::Wgpu,
+        wgpu_options: wgpu_configuration(),
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1440.0, 900.0])
             .with_min_inner_size([360.0, 600.0])
@@ -60,6 +78,7 @@ fn main() {
 
         let options = eframe::WebOptions {
             renderer: eframe::Renderer::Wgpu,
+            wgpu_options: wgpu_configuration(),
             ..Default::default()
         };
         let runner = eframe::WebRunner::new();

@@ -299,6 +299,17 @@ Cloudflare Pages notes.
 The app checks WebGPU in JavaScript before the wasm boots and again in Rust
 before starting eframe. If either check fails, the fallback page is shown.
 
+### High-performance GPU
+
+The app asks wgpu for `PowerPreference::HighPerformance`. This is a hint, not a
+guarantee: **Chrome on Windows currently ignores WebGPU's `powerPreference`**
+([Chromium issue 369219127](https://crbug.com/369219127)), so the browser and
+the operating system choose the adapter. A web page cannot override that
+choice. To force the discrete GPU, set Google Chrome to *High performance* in
+Windows Settings → System → Display → Graphics, or add Chrome to the
+high-performance profile in the NVIDIA/AMD control panel. A Chrome shortcut can
+also use `--force_high_performance_gpu`.
+
 ### Why not WebGL2?
 
 eframe and wgpu can fall back to WebGL2, but this atlas is explicitly a WebGPU
