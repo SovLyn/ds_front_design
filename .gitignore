@@ -1,0 +1,15 @@
+/target
+/dist
+/.trunk
+/preview
+/.atlas_tmp
+
+# Agent-only guidance is intentionally local; user docs remain tracked.
+/AGENTS.md
+**/AGENTS.md
+
+# Build and editor noise
+*.zip
+*.tmp
+.DS_Store
+/assets/fonts/*-VF.ttf

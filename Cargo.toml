@@ -1,0 +1,49 @@
+[package]
+name = "deep-space-atlas"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Deep Space Atlas — a WebGPU + egui cosmic field guide"
+license = "MIT"
+authors = ["Deep Space Atlas contributors"]
+publish = false
+
+[lib]
+name = "deep_space_atlas"
+path = "src/lib.rs"
+
+[[bin]]
+name = "deep-space-atlas"
+path = "src/main.rs"
+
+[dependencies]
+bytemuck = { version = "1.23", features = ["derive"] }
+eframe = { version = "0.37", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
+egui = "0.37"
+log = "0.4"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Document",
+    "Element",
+    "HtmlCanvasElement",
+    "Navigator",
+    "CssStyleDeclaration",
+    "DomTokenList",
+    "Performance",
+    "MediaQueryList",
+    "MediaQueryListEvent",
+    "EventTarget",
+] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.11"
+
+[dev-dependencies]
+pollster = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(web_sys_unstable_apis)'] }
