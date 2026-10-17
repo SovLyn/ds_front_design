@@ -2,6 +2,8 @@
 
 A field guide to the deep sky, drawn in real time by Rust, egui and WebGPU.
 
+**Live site: [sovlyn.github.io/ds_front_design](https://sovlyn.github.io/ds_front_design/)**
+
 Eight full-screen chapters move from a single star to the edge of a black hole.
 There are no photographs, textures or video files: every background is a
 procedural WebGPU scene, and every title, paragraph and figure is laid out by
@@ -15,6 +17,7 @@ like a modern web application.
 ## Contents
 
 - [What it is](#what-it-is)
+- [Live demo](#live-demo)
 - [Screens](#screens)
 - [Design philosophy](#design-philosophy)
 - [Tech stack](#tech-stack)
@@ -52,6 +55,14 @@ like a modern web application.
 The project is a front-end capability study: it tests how far a pure
 Rust/egui/WebGPU stack can be pushed toward an editorial, non-dashboard web
 experience.
+
+## Live demo
+
+**[sovlyn.github.io/ds_front_design](https://sovlyn.github.io/ds_front_design/)**
+
+The site is built by GitHub Actions on every push to `master` and published
+from the `gh-pages` branch. It needs WebGPU and a secure context; browsers
+without them see the styled fallback page described below.
 
 ## Screens
 
