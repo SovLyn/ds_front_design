@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-motion="full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#04060b" />
+  <meta name="description" content="深空图鉴 — 一部由 Rust、egui 与 WebGPU 实时绘制的深空视觉图鉴。" />
+  <title>Deep Space Atlas · 深空图鉴</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2304060b'/%3E%3Ccircle cx='32' cy='32' r='17' fill='none' stroke='%238fb6d9' stroke-width='1.5'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%23ffd9a0'/%3E%3C/svg%3E" />
+  
+<script type="module">
+import init, * as bindings from '/ds_front_design/deep-space-atlas-7e2efc132cde92b2.js';
+const wasm = await init({ module_or_path: '/ds_front_design/deep-space-atlas-7e2efc132cde92b2_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+  <style>
+    :root {
+      --ink: #04060b;
+      --ink-soft: #070b14;
+      --text: #e6eaf2;
+      --muted: #8a93a6;
+      --faint: #566072;
+      --accent: #8fb6d9;
+      --warm: #ffd9a0;
+      --hairline: rgba(255, 255, 255, 0.12);
+      --serif: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", Georgia, "Times New Roman", serif;
+      --sans: "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--ink);
+      color: var(--text);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
+    }
+
+    #atlas-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      outline: none;
+      touch-action: none;
+      background: var(--ink);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Boot sequence                                                      */
+    /* ------------------------------------------------------------------ */
+
+    .boot {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(ellipse at 62% 42%, rgba(38, 54, 92, 0.24), transparent 58%),
+        radial-gradient(ellipse at 20% 80%, rgba(30, 20, 48, 0.18), transparent 60%),
+        var(--ink);
+      transition: opacity 0.85s ease, visibility 0.85s ease;
+    }
+
+    html.atlas-ready .boot,
+    html.no-webgpu .boot {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .boot-inner {
+      width: min(78vw, 460px);
+      text-align: center;
+      animation: boot-in 1.4s ease both;
+    }
+
+    .boot-kicker {
+      font-size: 9px;
+      letter-spacing: 0.34em;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+
+    .boot-title {
+      margin: 18px 0 6px;
+      font-family: var(--serif);
+      font-weight: 300;
+      font-size: clamp(38px, 7vw, 64px);
+      letter-spacing: 0.16em;
+      line-height: 1.05;
+      color: #f1f3f8;
+    }
+
+    .boot-sub {
+      font-size: 9px;
+      letter-spacing: 0.42em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .boot-line {
+      position: relative;
+      width: 168px;
+      height: 1px;
+      margin: 34px auto 16px;
+      background: rgba(255, 255, 255, 0.10);
+      overflow: hidden;
+    }
+
+    .boot-line span {
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: boot-scan 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+
+    .boot-hint {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      color: rgba(138, 147, 166, 0.66);
+    }
+
+    .boot-error {
+      display: none;
+      margin: 20px auto 0;
+      max-width: 360px;
+      font-size: 12px;
+      line-height: 1.9;
+      color: #d8a08a;
+    }
+
+    html.boot-error .boot-error { display: block; }
+    html.boot-error .boot-hint { display: none; }
+
+    @keyframes boot-scan {
+      0% { left: -40%; }
+      100% { left: 100%; }
+    }
+
+    @keyframes boot-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Friendly no-WebGPU / no-JS fallback                                */
+    /* ------------------------------------------------------------------ */
+
+    .fallback {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      overflow: auto;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      background:
+        radial-gradient(ellipse at 72% 26%, rgba(58, 78, 122, 0.26), transparent 55%),
+        radial-gradient(ellipse at 18% 86%, rgba(74, 38, 70, 0.18), transparent 55%),
+        var(--ink);
+    }
+
+    html.no-webgpu .fallback { display: flex; }
+    html.no-webgpu #atlas-canvas { display: none; }
+
+    .fallback-panel {
+      width: min(660px, 100%);
+      padding: 42px clamp(24px, 6vw, 54px);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(6, 10, 18, 0.62);
+      backdrop-filter: blur(12px);
+    }
+
+    .fallback-mark {
+      font-size: 9px;
+      letter-spacing: 0.34em;
+      color: var(--faint);
+    }
+
+    .fallback h1 {
+      margin: 18px 0 10px;
+      font-family: var(--serif);
+      font-weight: 300;
+      font-size: clamp(38px, 7vw, 62px);
+      letter-spacing: 0.12em;
+      line-height: 1.1;
+      color: #f1f3f8;
+    }
+
+    .fallback .lead {
+      margin: 0 0 14px;
+      font-family: var(--serif);
+      font-size: 18px;
+      line-height: 1.8;
+      color: #d6dbe6;
+    }
+
+    .fallback p {
+      margin: 0 0 12px;
+      font-size: 13.5px;
+      line-height: 1.95;
+      color: var(--muted);
+    }
+
+    .fallback code {
+      font-size: 12px;
+      color: var(--warm);
+    }
+
+    .fallback-grid {
+      display: grid;
+      gap: 10px;
+      margin: 26px 0;
+      padding: 18px 0;
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+      font-size: 12px;
+      line-height: 1.8;
+      color: #aab2c2;
+    }
+
+    .fallback-grid span {
+      display: inline-block;
+      width: 28px;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fallback-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      margin: 18px 0 24px;
+    }
+
+    .fallback-links a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(143, 182, 217, 0.4);
+      padding-bottom: 2px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+
+    .fallback-links a:hover { border-bottom-color: var(--accent); }
+
+    .fallback-note {
+      margin: 0 !important;
+      font-size: 11px !important;
+      color: var(--faint) !important;
+      line-height: 1.9 !important;
+    }
+
+    noscript .fallback { display: flex; }
+    noscript .boot { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .boot-inner { animation: none; }
+      .boot-line span { animation: none; opacity: 0.5; }
+      .boot { transition: none; }
+    }
+
+    @media (max-width: 640px) {
+      .fallback { padding: 28px 16px; }
+      .fallback-panel { padding: 30px 22px; }
+      .fallback .lead { font-size: 16px; }
+      .boot-kicker { letter-spacing: 0.22em; }
+    }
+  </style>
+<link rel="modulepreload" href="/ds_front_design/deep-space-atlas-7e2efc132cde92b2.js" crossorigin="anonymous" integrity="sha384-sSUNZeiFE2C05Hvo6C2THuQbrxASHXtR389RksT3MJn/n3k43zElbPl3xRR3cyE9"><link rel="preload" href="/ds_front_design/deep-space-atlas-7e2efc132cde92b2_bg.wasm" crossorigin="anonymous" integrity="sha384-bYpUObgBP5pL5aUN4x5OF8d1eX6O+cY8upNpfM5gNOCrnHftN54iChdtM1yPdIgx" as="fetch" type="application/wasm"></head>
+<body>
+  <canvas id="atlas-canvas" aria-label="深空图鉴的实时 WebGPU 背景"></canvas>
+
+  <div class="boot" aria-hidden="true">
+    <div class="boot-inner">
+      <div class="boot-kicker">A FIELD GUIDE TO THE DEEP SKY</div>
+      <div class="boot-title">深空图鉴</div>
+      <div class="boot-sub">Deep Space Atlas</div>
+      <div class="boot-line"><span></span></div>
+      <div class="boot-hint">正在点亮星图 · IGNITING THE ATLAS</div>
+      <div class="boot-error">画布未能启动。请使用最新版 Chrome / Edge / Safari，并通过 HTTPS 或 localhost 访问。</div>
+    </div>
+  </div>
+
+  <main class="fallback" role="main">
+    <div class="fallback-panel">
+      <div class="fallback-mark">DEEP SPACE ATLAS · 深空图鉴</div>
+      <h1>深空图鉴</h1>
+      <p class="lead">这部图鉴需要 WebGPU，才能在浏览器里实时绘制深空。</p>
+      <p>当前浏览器没有提供可用的 WebGPU，或页面不是安全上下文（HTTPS / localhost）。这不是内容缺失，而是渲染后端没有启动。</p>
+      <div class="fallback-grid">
+        <div><span>01</span> 使用最新版 Chrome / Edge（Windows、macOS、Android）</div>
+        <div><span>02</span> Safari 26+ 与 iOS / iPadOS 26+ 已支持 WebGPU</div>
+        <div><span>03</span> 确认地址栏是 <code>https://</code> 或 <code>http://localhost</code></div>
+        <div><span>04</span> 若使用 Linux，请启用浏览器实验性 WebGPU 支持</div>
+      </div>
+      <div class="fallback-links">
+        <a href="https://caniuse.com/webgpu" target="_blank" rel="noreferrer">WebGPU 支持情况</a>
+        <a href="https://webgpureport.org/" target="_blank" rel="noreferrer">检测 WebGPU</a>
+        <a href="https://github.com/gpuweb/gpuweb/wiki/Implementation-Status" target="_blank" rel="noreferrer">实现状态</a>
+      </div>
+      <p class="fallback-note">图鉴的文字、设计说明与构建方式仍然可以在 README 中阅读。所有背景均为程序生成，不含外部图片。</p>
+    </div>
+  </main>
+
+  <noscript>
+    <style>
+      .boot { display: none !important; }
+      .fallback { display: flex !important; }
+    </style>
+  </noscript>
+
+  <script>
+    (function () {
+      // eframe sizes its backing store from the resize observer. In a few
+      // emulated / high-DPI contexts the observer reports CSS pixels, which
+      // makes the egui viewport half as wide as the screen. Re-assert the
+      // device-pixel size once the canvas is laid out.
+      function fitCanvas() {
+        var canvas = document.getElementById("atlas-canvas");
+        if (!canvas) return;
+        var dpr = window.devicePixelRatio || 1;
+        var w = Math.round((canvas.clientWidth || window.innerWidth) * dpr);
+        var h = Math.round((canvas.clientHeight || window.innerHeight) * dpr);
+        if (w > 0 && canvas.width !== w) canvas.width = w;
+        if (h > 0 && canvas.height !== h) canvas.height = h;
+      }
+      fitCanvas();
+      window.addEventListener("resize", fitCanvas);
+      window.addEventListener("orientationchange", fitCanvas);
+      window.setTimeout(fitCanvas, 400);
+      window.setTimeout(fitCanvas, 1200);
+      window.setTimeout(fitCanvas, 2500);
+
+      var root = document.documentElement;
+      var hasGpu = false;
+      try {
+        hasGpu = !!navigator.gpu && !!window.isSecureContext;
+      } catch (error) {
+        hasGpu = false;
+      }
+      if (!hasGpu) {
+        root.classList.add("no-webgpu");
+      }
+      window.setTimeout(function () {
+        if (!root.classList.contains("atlas-ready")) {
+          root.classList.add("boot-error");
+        }
+      }, 18000);
+    })();
+  </script>
+</body>
+</html>
